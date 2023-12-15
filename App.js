@@ -3,8 +3,11 @@ import { StyleSheet, Text, View, Button, StatusBar, TouchableOpacity } from 'rea
 import { Camera } from 'expo-camera';
 import * as tf from '@tensorflow/tfjs';
 import '@tensorflow/tfjs-react-native';
-import * as jpeg from 'jpeg-js';
 import { fetch, decodeJpeg } from '@tensorflow/tfjs-react-native';
+import modelJson from './assets/model/model.json';
+import { bundleResourceIO } from '@tensorflow/tfjs-react-native';
+
+
 
 
 export default function App() {
@@ -20,7 +23,13 @@ export default function App() {
     (async () => {
       try {
         await tf.ready();
-        const model = await tf.loadGraphModel(require('./assets/model/model.json'));
+        const modelWeights = [
+          require('./assets/model/group1-shard1of2.bin'),
+          require('./assets/model/group1-shard2of2.bin') // Include other shards if present
+        ];
+        const model = await tf.loadGraphModel(
+          bundleResourceIO(modelJson, modelWeights) // Adjust this line
+        );
         setModel(model);
       } catch (error) {
         console.error("Error loading model:", error);
@@ -58,10 +67,15 @@ export default function App() {
   };
 
   const imageToTensor = async (rawImageData) => {
+    try {
       const response = await fetch(rawImageData, {}, { isBinary: true });
-    const imageData = await response.arrayBuffer();
-    const imageTensor = decodeJpeg(imageData);
-    return imageTensor;
+      const imageData = await response.arrayBuffer();
+      const imageTensor = decodeJpeg(imageData);
+      return imageTensor;
+    } catch (error) {
+      console.error("Error fetching or decoding image:", error);
+      throw error; // Rethrow the error to handle it elsewhere if needed
+    }
   };
 
   const renderBoxes = () => {
